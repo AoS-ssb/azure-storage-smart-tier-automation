@@ -81,6 +81,13 @@ of a supervised single-account wave did not change; every item below closes a co
 - No conditional update exists for storage accounts; the opt-in check and the PATCH are not atomic.
 - Serial execution; no checkpoint/resume beyond idempotent re-runs.
 
+### Release provenance
+- Tag `v1.1.0` = commit `33240e3` (squash of the reviewed branch, PR #1). Published to the demo Automation
+  Account on 2026-08-25 as runbook `Enable-AzStorageSmartTier` (PowerShell 7.4 runtime); fetch-back content
+  SHA-256 `ba11f6413b7b5ee1…` equals `src/Enable-AzStorageSmartTier.ps1` at this tag and the bytes that
+  passed the 50/50 harness and the live guard set. The qualification copy `Enable-AzStorageSmartTier-v11`
+  was retained; the 1.0 bytes remain in git history (`bd2fcb0`, tag `v1.0.0`).
+
 ## 1.0.0 — 2026-08-24
 Runbook as published in the owner's Automation account and exercised against an eight-account fixture
 (audit, capped remediation, one `ScopeLocked` failure, idempotence). Imported verbatim as the first commit
