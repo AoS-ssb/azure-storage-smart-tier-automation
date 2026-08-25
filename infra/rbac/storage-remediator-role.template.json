@@ -1,16 +1,15 @@
 {
   "Name": "Azure Storage Smart Tier Remediator",
   "IsCustom": true,
-  "Description": "Can read storage accounts and their locks and update storage accounts for enable-only smart-tier automation. Note: Microsoft.Storage/storageAccounts/write is full account-update authority (network rules, shared-key access, TLS settings, public access and more) - there is no field-level action for accessTier. The role grants no delete, key or data-plane actions. Assign it only at the resource group(s) that contain the accounts you intend to change.",
+  "Description": "Can read and update storage accounts for enable-only smart-tier automation. storageAccounts/write is full account-update authority (Azure has no property-level permission): assign this role only at the ring resource group, only while a wave runs, then remove it. No key, delete or data-plane rights.",
   "Actions": [
     "Microsoft.Storage/storageAccounts/read",
-    "Microsoft.Storage/storageAccounts/write",
-    "Microsoft.Authorization/locks/read"
+    "Microsoft.Storage/storageAccounts/write"
   ],
   "NotActions": [],
   "DataActions": [],
   "NotDataActions": [],
   "AssignableScopes": [
-    "/subscriptions/REPLACE_WITH_SUBSCRIPTION_ID"
+    "/subscriptions/<subscription-id>/resourceGroups/<ring-resource-group>"
   ]
 }
