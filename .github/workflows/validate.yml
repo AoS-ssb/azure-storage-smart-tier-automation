@@ -40,8 +40,8 @@ jobs:
         shell: bash
         run: |
           jq empty infra/rbac/*.json
-          jq -e '.Actions == ["Microsoft.Resources/subscriptions/read","Microsoft.Resources/subscriptions/resourceGroups/read","Microsoft.Storage/storageAccounts/read","Microsoft.Authorization/locks/read"] and .NotActions == []' infra/rbac/discovery-reader-role.template.json > /dev/null
-          jq -e '.Actions == ["Microsoft.Storage/storageAccounts/read","Microsoft.Storage/storageAccounts/write","Microsoft.Authorization/locks/read"] and .NotActions == []' infra/rbac/storage-remediator-role.template.json > /dev/null
+          jq -e '.Actions == ["Microsoft.Resources/subscriptions/read","Microsoft.Resources/subscriptions/resourceGroups/read","Microsoft.Storage/storageAccounts/read"] and .NotActions == []' infra/rbac/discovery-reader-role.template.json > /dev/null
+          jq -e '.Actions == ["Microsoft.Storage/storageAccounts/read","Microsoft.Storage/storageAccounts/write"] and .NotActions == []' infra/rbac/storage-remediator-role.template.json > /dev/null
 
       - name: Compile Bicep fixture
         shell: bash
