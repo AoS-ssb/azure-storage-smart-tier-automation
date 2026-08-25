@@ -1,0 +1,71 @@
+{
+  "subscriptionId": "11111111-1111-1111-1111-111111111111",
+  "resourceGroupName": "rg-fixture",
+  "managementEndpoint": "https://management.azure.com",
+  "governmentEndpoint": "https://management.usgovcloudapi.net",
+  "accounts": [
+    {
+      "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-fixture/providers/Microsoft.Storage/storageAccounts/stfixturezrs",
+      "name": "stfixturezrs", "type": "Microsoft.Storage/storageAccounts", "location": "eastus2",
+      "kind": "StorageV2", "sku": { "name": "Standard_ZRS", "tier": "Standard" },
+      "tags": { "SmartTierManaged": "true", "Purpose": "behavior-harness" },
+      "properties": { "provisioningState": "Succeeded", "accessTier": "Hot", "isHnsEnabled": false }
+    },
+    {
+      "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-fixture/providers/Microsoft.Storage/storageAccounts/stfixturenotag",
+      "name": "stfixturenotag", "type": "Microsoft.Storage/storageAccounts", "location": "eastus2",
+      "kind": "StorageV2", "sku": { "name": "Standard_ZRS", "tier": "Standard" },
+      "tags": { "Purpose": "behavior-harness" },
+      "properties": { "provisioningState": "Succeeded", "accessTier": "Hot", "isHnsEnabled": false }
+    },
+    {
+      "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-fixture/providers/Microsoft.Storage/storageAccounts/stfixturebadtag",
+      "name": "stfixturebadtag", "type": "Microsoft.Storage/storageAccounts", "location": "eastus2",
+      "kind": "StorageV2", "sku": { "name": "Standard_ZRS", "tier": "Standard" },
+      "tags": { "SmartTierManaged": "maybe", "Purpose": "behavior-harness" },
+      "properties": { "provisioningState": "Succeeded", "accessTier": "Hot", "isHnsEnabled": false }
+    },
+    {
+      "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-fixture/providers/Microsoft.Storage/storageAccounts/stfixturegzrs",
+      "name": "stfixturegzrs", "type": "Microsoft.Storage/storageAccounts", "location": "eastus2",
+      "kind": "StorageV2", "sku": { "name": "Standard_GZRS", "tier": "Standard" },
+      "tags": { "SmartTierManaged": "true", "Purpose": "behavior-harness" },
+      "properties": { "provisioningState": "Succeeded", "accessTier": "Cool", "isHnsEnabled": false }
+    },
+    {
+      "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-fixture/providers/Microsoft.Storage/storageAccounts/stfixturehns",
+      "name": "stfixturehns", "type": "Microsoft.Storage/storageAccounts", "location": "eastus2",
+      "kind": "StorageV2", "sku": { "name": "Standard_ZRS", "tier": "Standard" },
+      "tags": { "SmartTierManaged": "true", "Purpose": "behavior-harness" },
+      "properties": { "provisioningState": "Succeeded", "accessTier": "Hot", "isHnsEnabled": true }
+    },
+    {
+      "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-fixture/providers/Microsoft.Storage/storageAccounts/stfixturesmart",
+      "name": "stfixturesmart", "type": "Microsoft.Storage/storageAccounts", "location": "eastus2",
+      "kind": "StorageV2", "sku": { "name": "Standard_ZRS", "tier": "Standard" },
+      "tags": { "SmartTierManaged": "true", "Purpose": "behavior-harness" },
+      "properties": { "provisioningState": "Succeeded", "accessTier": "Smart", "isHnsEnabled": false }
+    },
+    {
+      "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-fixture/providers/Microsoft.Storage/storageAccounts/stfixturelock",
+      "name": "stfixturelock", "type": "Microsoft.Storage/storageAccounts", "location": "eastus2",
+      "kind": "StorageV2", "sku": { "name": "Standard_ZRS", "tier": "Standard" },
+      "tags": { "SmartTierManaged": "true", "Purpose": "behavior-harness" },
+      "properties": { "provisioningState": "Succeeded", "accessTier": "Hot", "isHnsEnabled": false }
+    },
+    {
+      "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-fixture/providers/Microsoft.Storage/storageAccounts/stfixturelrs",
+      "name": "stfixturelrs", "type": "Microsoft.Storage/storageAccounts", "location": "eastus2",
+      "kind": "StorageV2", "sku": { "name": "Standard_LRS", "tier": "Standard" },
+      "tags": { "SmartTierManaged": "true", "Purpose": "behavior-harness" },
+      "properties": { "provisioningState": "Succeeded", "accessTier": "Hot", "isHnsEnabled": false }
+    },
+    {
+      "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-fixture/providers/Microsoft.Storage/storageAccounts/stfixtureblock",
+      "name": "stfixtureblock", "type": "Microsoft.Storage/storageAccounts", "location": "eastus2",
+      "kind": "BlockBlobStorage", "sku": { "name": "Standard_ZRS", "tier": "Standard" },
+      "tags": { "SmartTierManaged": "true", "Purpose": "behavior-harness" },
+      "properties": { "provisioningState": "Succeeded", "accessTier": "Hot", "isHnsEnabled": false }
+    }
+  ]
+}

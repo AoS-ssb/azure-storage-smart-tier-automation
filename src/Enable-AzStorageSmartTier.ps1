@@ -25,7 +25,7 @@ Safety properties:
   WriteOutcomeUnknown (a lost response that re-reads could not resolve). A write with an unknown
   outcome is never resubmitted; a 403 stops the run instead of failing every account.
 - Output is one JSON line per account as soon as its state is known, an INTENT line immediately before
-  every PATCH, and a final SUMMARY line that is emitted on every path - parameter errors, aborts and
+  every PATCH attempt (retries included), and a final SUMMARY line that is emitted on every path - parameter errors, aborts and
   unexpected errors included (only parameter *binding* errors, e.g. a malformed SubscriptionId, fail
   before the script body runs).
 - No new write starts after JobTimeBudgetSeconds, well inside the Azure Automation job limit.
@@ -224,6 +224,20 @@ function Get-JsonBool {
     return ($text -ieq 'true')
 }
 
+function Protect-Enumerable {
+    # PowerShell unrolls enumerable return values (HttpResponseHeaders, arrays, lists) into the pipeline;
+    # the comma operator hands them back intact. Scalars, strings and $null pass through untouched.
+    param(
+        [AllowNull()]
+        [object] $Value
+    )
+
+    if ($null -ne $Value -and $Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+        return , $Value
+    }
+    return $Value
+}
+
 function Get-PropertyValue {
     param(
         [AllowNull()]
@@ -238,7 +252,7 @@ function Get-PropertyValue {
     if ($InputObject -is [System.Collections.IDictionary]) {
         foreach ($key in $InputObject.Keys) {
             if ([string]$key -ieq $Name) {
-                return $InputObject[$key]
+                return Protect-Enumerable -Value $InputObject[$key]
             }
         }
         return $null
@@ -247,7 +261,7 @@ function Get-PropertyValue {
     if ($null -eq $property) {
         return $null
     }
-    return $property.Value
+    return Protect-Enumerable -Value $property.Value
 }
 
 function Get-HeaderValue {
@@ -381,7 +395,8 @@ function Invoke-ArmCall {
     )
 
     Assert-ArmUri -Uri $Uri
-    $maxAttempts = 4
+    # PATCH is a single attempt here: the caller decides about a 429 retry (emitting a fresh INTENT).
+    $maxAttempts = if ($Method -eq 'PATCH') { 1 } else { 4 }
     $last = $null
     for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
         $request = @{ Method = $Method; Uri = $Uri; DefaultProfile = $script:AzContext }
@@ -391,6 +406,7 @@ function Invoke-ArmCall {
         $result = [ordered]@{
             StatusCode = $null; Content = ''; Body = $null; Headers = $null
             ArmCode = $null; ArmMessage = $null; RequestId = $null; Transport = $false; Error = $null
+            RetryAfterSeconds = $null
         }
         try {
             $response = Invoke-AzRestMethod @request
@@ -453,11 +469,9 @@ function Invoke-ArmCall {
         $retryAfterText = Get-HeaderValue -Headers $last.Headers -Name 'Retry-After'
         if ($null -ne $retryAfterText -and $retryAfterText -match '^\d+$') {
             $retryAfter = [int]$retryAfterText
+            $last.RetryAfterSeconds = $retryAfter
         }
         $transient = $last.Transport -or ($last.StatusCode -in @(408, 429)) -or ($last.StatusCode -ge 500 -and $last.StatusCode -le 599)
-        if ($Method -eq 'PATCH') {
-            $transient = ($last.StatusCode -eq 429)
-        }
         if ($transient -and $attempt -lt $maxAttempts) {
             $delay = Get-BackoffDelay -Attempt $attempt -RetryAfterSeconds $retryAfter
             if ($delay -gt 300 -or $delay -gt (Get-RemainingJobBudget)) {
@@ -480,6 +494,26 @@ function Invoke-ArmCall {
         throw $exception
     }
     return $last
+}
+
+function Get-PatchRetryDelay {
+    # A PATCH is re-sent only after a 429 (ARM did not process it), only within four attempts, and only
+    # when the full Retry-After fits inside five minutes and the remaining job budget. $null = do not retry.
+    param(
+        [Parameter(Mandatory = $true)]
+        [object] $Result,
+        [Parameter(Mandatory = $true)]
+        [int] $Attempt
+    )
+
+    if ($Result.Transport -or $Result.StatusCode -ne 429 -or $Attempt -ge 4) {
+        return $null
+    }
+    $delay = Get-BackoffDelay -Attempt $Attempt -RetryAfterSeconds $Result.RetryAfterSeconds
+    if ($delay -gt 300 -or $delay -gt (Get-RemainingJobBudget)) {
+        return $null
+    }
+    return [int]$delay
 }
 
 function Get-ExceptionDiagnostic {
@@ -790,6 +824,15 @@ try {
         }
     }
 
+    if ($Mode -eq 'Remediate' -and $null -ne $abortReason) {
+        # Every candidate gets a terminal record even when the run aborts before the first write.
+        foreach ($candidate in ($candidateList | Sort-Object { $_.Id })) {
+            $counters.runAborted++
+            $listedTier = Get-JsonString -Node (Get-JsonMember -Node (Get-JsonMember -Node $candidate.Account -Name 'properties') -Name 'accessTier')
+            Write-ResultRow -Row (Format-ResultRow -Account $candidate.Account -Status 'SkippedRunAborted' -Stage 'Write' -Reasons @("AbortReason:$abortReason") -BeforeTier $listedTier -AfterTier $listedTier -HttpStatus $null -ArmCode $null -RequestId $null -Message 'Not attempted: the run aborted before the first write.')
+        }
+    }
+
     # --- remediation --------------------------------------------------------------------------
     if ($Mode -eq 'Remediate' -and $null -eq $abortReason) {
         $runAborted = $false
@@ -832,32 +875,43 @@ try {
                     Write-ResultRow -Row (Format-ResultRow -Account $fresh -Status 'SkippedJobBudgetExhausted' -Stage 'Write' -Reasons @() -BeforeTier $beforeTier -AfterTier $beforeTier -HttpStatus $null -ArmCode $null -RequestId $null -Message "JobTimeBudgetSeconds ($script:JobBudget) elapsed during the pre-write read; no PATCH was sent.")
                     continue
                 }
-                $intent = [ordered]@{
-                    timestamp  = [DateTime]::UtcNow.ToString('o')
-                    id         = $candidate.Id
-                    name       = Get-JsonString -Node (Get-JsonMember -Node $fresh -Name 'name')
-                    beforeTier = $beforeTier
-                    payload    = $script:PatchPayload
+                $freshName = Get-JsonString -Node (Get-JsonMember -Node $fresh -Name 'name')
+                $put = $null
+                for ($patchAttempt = 1; $patchAttempt -le 4; $patchAttempt++) {
+                    # Every attempt that reaches the wire is announced first and counted.
+                    $intent = [ordered]@{
+                        timestamp  = [DateTime]::UtcNow.ToString('o')
+                        attempt    = $patchAttempt
+                        id         = $candidate.Id
+                        name       = $freshName
+                        beforeTier = $beforeTier
+                        payload    = $script:PatchPayload
+                    }
+                    Write-Output ('INTENT ' + ($intent | ConvertTo-Json -Compress -Depth 3))
+                    $counters.patchesSubmitted++
+                    $put = Invoke-ArmCall -Method PATCH -Uri $candidate.Uri -Payload $script:PatchPayload
+                    $retryDelay = Get-PatchRetryDelay -Result $put -Attempt $patchAttempt
+                    if ($null -eq $retryDelay) {
+                        break
+                    }
+                    Start-Sleep -Seconds $retryDelay
                 }
-                Write-Output ('INTENT ' + ($intent | ConvertTo-Json -Compress -Depth 3))
-                $counters.patchesSubmitted++
-                $put = Invoke-ArmCall -Method PATCH -Uri $candidate.Uri -Payload $script:PatchPayload
                 $operationMessage = $null
                 $reconciled = $false
 
                 if (-not $put.Transport -and $put.StatusCode -eq 200) {
                     $operationMessage = "HTTP $($put.StatusCode)"
                 }
+                elseif (-not $put.Transport -and $put.ArmCode -ieq 'ScopeLocked') {
+                    $counters.locked++
+                    Write-ResultRow -Row (Format-ResultRow -Account $fresh -Status 'BlockedScopeLock' -Stage 'Write' -Reasons @('ReadOnlyLock', 'ScopeLocked') -BeforeTier $beforeTier -AfterTier $beforeTier -HttpStatus $put.StatusCode -ArmCode $put.ArmCode -RequestId $put.RequestId -Message "$($put.Error) A ReadOnly lock applies: remove it deliberately and rerun; the account was not changed and this is not retried.")
+                    continue
+                }
                 elseif (-not $put.Transport -and $put.StatusCode -eq 403) {
                     $counters.failed++
                     $abortReason = 'Forbidden'; $abortMessage = "The identity may not update '$($candidate.Id)'; the remaining candidates were not attempted."
                     $runAborted = $true
                     Write-ResultRow -Row (Format-ResultRow -Account $fresh -Status 'Failed' -Stage 'Write' -Reasons @('Forbidden') -BeforeTier $beforeTier -AfterTier $beforeTier -HttpStatus $put.StatusCode -ArmCode $put.ArmCode -RequestId $put.RequestId -Message $put.Error)
-                    continue
-                }
-                elseif (-not $put.Transport -and $put.ArmCode -ieq 'ScopeLocked') {
-                    $counters.locked++
-                    Write-ResultRow -Row (Format-ResultRow -Account $fresh -Status 'BlockedScopeLock' -Stage 'Write' -Reasons @('ReadOnlyLock', 'ScopeLocked') -BeforeTier $beforeTier -AfterTier $beforeTier -HttpStatus $put.StatusCode -ArmCode $put.ArmCode -RequestId $put.RequestId -Message "$($put.Error) A ReadOnly lock applies: remove it deliberately and rerun; the account was not changed and this is not retried.")
                     continue
                 }
                 elseif (-not $put.Transport -and ($put.StatusCode -eq 429 -or ($put.StatusCode -eq 409 -and $put.ArmCode -in $script:TransientConflictCodes))) {

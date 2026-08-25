@@ -30,10 +30,17 @@ one tagged `maybe`), 1 `AlreadySmart`. Zero writes.
 
 ## 1.1 — offline verification (2026-08-25)
 
-`tests/BehaviorHarness.ps1` executes the unmodified runbook under PowerShell 7.4 with mocked Az cmdlets
-(`Connect-AzAccount`, `Set-AzContext`, `Disable-AzContextAutosave`, `Invoke-AzRestMethod`) and asserts
-per-account statuses and reasons, counters, PATCH bodies, abort reasons, sleeps and thrown errors. Scenario
-coverage and the pass count are recorded in the harness output and in the pull request.
+`tests/BehaviorHarness.ps1` executes the unmodified runbook with mocked Az cmdlets (`Connect-AzAccount`,
+`Set-AzContext`, `Disable-AzContextAutosave`, `Invoke-AzRestMethod`, one scenario with a real
+`HttpResponseHeaders` object) and asserts per-account statuses and reasons, `event` typing, counters and
+their invariants, `INTENT`-before-every-wire-PATCH ordering, PATCH bodies, abort reasons, sleeps, request-id
+capture and thrown errors. **50 scenario executions (S01–S45 with variants), 50 pass** on PowerShell 7.4.19
+and on 7.6.5 for runbook SHA-256 `ba11f6413b7b5ee1…`. The harness was written by an independent model
+against the contract, first ran 27/35 against the draft, then proved four real defects in the fixed draft
+(a retried PATCH without its own `INTENT`, `Retry-After` lost through pipeline enumeration of the real
+header object, candidates without a terminal row after a preflight abort, `ScopeLocked` losing to a 403)
+before the final 50/50. Run it non-interactively (`pwsh -NonInteractive -NoProfile -File
+./tests/BehaviorHarness.ps1`): one scenario omits the mandatory `SubscriptionId` on purpose.
 
 ## 1.1 — live qualification (2026-08-25, demo Automation Account, PowerShell 7.4 runtime `PowerShell74-SmartTier`, Az 12.3.0)
 
@@ -64,5 +71,6 @@ fixture's optional `ReadOnly` lock (`createLock=true`, Owner/User Access Adminis
 scripted (`live-qualify.sh` step 4 in the private workspace) and were proven offline by the behavioural
 harness.
 
-Tested content SHA-256 (fetch-back of the published `-v11` runbook): `5215c3210d4e9fba…` for the guard set
-above; the released bytes are recorded in the release notes as `<FINAL-SHA>`.
+The guard set above was run twice: on an earlier candidate (`5215c3210d4e9fba…`) and again on the released
+bytes — fetch-back of the published `-v11` runbook SHA-256 **`ba11f6413b7b5ee1…`**, identical to
+`src/Enable-AzStorageSmartTier.ps1` at `v1.1.0` and to the 50/50 harness run. Tested bytes are shipped bytes.

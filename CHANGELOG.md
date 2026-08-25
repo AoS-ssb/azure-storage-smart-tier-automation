@@ -26,9 +26,10 @@ of a supervised single-account wave did not change; every item below closes a co
   extra permission is not worth it. 1.0 reported the live lock as a generic `Failed` with the old tier.
 - **Remediate is resource-group scoped.** `Mode=Remediate` with `ScopeType=Subscription` is refused before
   any ARM call; subscription scope remains available for audits.
-- **Intent before write.** An `INTENT` line (id, name, pre-write tier, the exact payload) precedes every
-  PATCH and `counts.patchesSubmitted` records how many PATCH requests were sent, so a job killed mid-write
-  still shows what was attempted.
+- **Intent before write.** An `INTENT` line (id, name, pre-write tier, attempt number, the exact payload)
+  precedes every PATCH attempt — a 429 retry included — and `counts.patchesSubmitted` counts every PATCH
+  request that reached the wire, so a job killed mid-write still shows what was attempted. When a run
+  aborts in preflight, every candidate still gets a terminal `SkippedRunAborted` row.
 - **Honest write outcomes.** `Remediated` (verified by re-read), `SkippedPreconditionChanged`,
   `BlockedScopeLock`, `Deferred` (other 409 / exhausted 429), `Failed` (definitive 4xx) and
   `WriteOutcomeUnknown` (5xx or lost response that six re-reads could not resolve — never resubmitted).

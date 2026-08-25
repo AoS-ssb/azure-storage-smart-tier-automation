@@ -25,8 +25,8 @@ jobs:
         run: ./tests/StaticValidation.ps1
 
       - name: Behavioural harness against the real runbook (mocked Az cmdlets)
-        shell: pwsh
-        run: ./tests/BehaviorHarness.ps1
+        shell: bash
+        run: pwsh -NonInteractive -NoProfile -File ./tests/BehaviorHarness.ps1 < /dev/null
 
       - name: PSScriptAnalyzer (errors and warnings fail the build)
         shell: pwsh
