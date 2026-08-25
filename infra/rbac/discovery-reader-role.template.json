@@ -1,0 +1,17 @@
+{
+  "Name": "Azure Storage Smart Tier Discovery Reader",
+  "IsCustom": true,
+  "Description": "Can enumerate storage accounts and read their properties, tags and locks for smart-tier discovery. Has no write, delete, key or data-plane actions. Assign at resource-group scope for ResourceGroup-scoped runs; subscription scope only for ScopeType=Subscription discovery.",
+  "Actions": [
+    "Microsoft.Resources/subscriptions/read",
+    "Microsoft.Resources/subscriptions/resourceGroups/read",
+    "Microsoft.Storage/storageAccounts/read",
+    "Microsoft.Authorization/locks/read"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": [
+    "/subscriptions/REPLACE_WITH_SUBSCRIPTION_ID"
+  ]
+}

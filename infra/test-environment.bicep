@@ -1,5 +1,5 @@
 // Disposable fixture for Azure Blob Storage smart-tier automation tests. Nine EMPTY storage accounts
-// covering every classification the runbook makes, plus a CanNotDelete lock on one eligible account
+// covering every classification the runbook makes, plus an optional ReadOnly lock on one eligible account
 // to reproduce the HTTP 409 ScopeLocked case. Costs ~nothing while empty (no data, no transactions).
 @description('Azure region with zone redundancy (ZRS/GZRS) available.')
 param location string = resourceGroup().location
@@ -12,7 +12,7 @@ param namePrefix string
 @description('Opt-in tag name the runbook requires.')
 param optInTagName string = 'SmartTierManaged'
 
-@description('Create the CanNotDelete lock on the "zrslock" account (needs Microsoft.Authorization/locks/write, i.e. Owner or User Access Administrator). Without it the 409 ScopeLocked case is harness-only.')
+@description('Create a ReadOnly lock on the "zrslock" account so a PATCH returns 409 ScopeLocked (needs Microsoft.Authorization/locks/write, i.e. Owner or User Access Administrator). A CanNotDelete lock would NOT block the PATCH. Without the lock the 409 case is harness-only.')
 param createLock bool = false
 
 @description('Set true to seed the already-Smart account as Smart (default) or Hot (to test enablement twice).')
@@ -58,7 +58,7 @@ resource lock 'Microsoft.Authorization/locks@2020-05-01' = [for (a, i) in accoun
   name: 'smart-tier-fixture-lock'
   scope: storage[i]
   properties: {
-    level: 'CanNotDelete'
+    level: 'ReadOnly'
     notes: 'Fixture: reproduces HTTP 409 ScopeLocked for the smart-tier runbook.'
   }
 }]
