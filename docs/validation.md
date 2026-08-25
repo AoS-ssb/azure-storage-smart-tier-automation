@@ -65,11 +65,30 @@ Earlier iterations of the same day caught two real runtime facts that the offlin
 `UnexpectedError` — fixed by passing the payload only for PATCH) and `PSHttpResponse.Headers` is
 `HttpResponseHeaders`, not a dictionary (header reading now uses `TryGetValues`).
 
-Not yet exercised live: the ring-of-one write (`Remediated`) and the idempotent repeat, which need the
-remediator role assigned at the fixture resource group; the `409 ScopeLocked` path, which needs the
-fixture's optional `ReadOnly` lock (`createLock=true`, Owner/User Access Administrator required). Both are
-scripted (`live-qualify.sh` step 4 in the private workspace) and were proven offline by the behavioural
-harness.
+### Ring of one, live (2026-08-25 15:39–15:46Z, remediator role assigned at the fixture RG for the duration)
+
+The custom **Azure Storage Smart Tier Remediator** role (`storageAccounts/read` + `write`, assignable only to
+the fixture RG) was created and assigned to the Automation identity, the runs below were executed with the
+released bytes (`ba11f641…`), and the assignment, the role definition and the lock were removed afterwards.
+
+| Run | Target | Result |
+|---|---|---|
+| `q4a` | ZRS / Hot, opted in, `ExpectedChanges=1` | **Completed** — `Classification` `WouldRemediate`, one `INTENT`, one PATCH, `Outcome` **`Remediated`** `Hot→Smart` verified by same-id re-read; `patchesSubmitted=1` |
+| `q4a` diff | same account, full `az storage account show` before/after | **84 properties compared, 1 differs: `accessTier: Hot → Smart`** — tags, network rules, TLS, shared-key and public-access settings untouched |
+| `q4b` | same account again, `ExpectedChanges=1` | **Completed** — `AlreadySmart`, `patchesSubmitted=0`, no mismatch abort (idempotent success) |
+| `q4c` | GZRS / Cool, opted in | **Completed** — `Remediated` `Cool→Smart` |
+| `q4d` | ZRS / hierarchical namespace, opted in | **Completed** — `Remediated` `Hot→Smart` (HNS accounts are eligible, as the review established) |
+| `q4e` | GZRS account again, no `ExpectedChanges` | **Completed** — `AlreadySmart`, zero PATCHes |
+| `q4f` | ZRS account under a `ReadOnly` lock | **Failed (by design)** — one `INTENT`, one PATCH, live `409 ScopeLocked` → `Outcome` **`BlockedScopeLock`** (`ReadOnlyLock, ScopeLocked`), `locked=1`, account unchanged; not retried, not green |
+| `q4g` | final fixture audit | **Completed** — 9/9: 4 `AlreadySmart`, 1 `WouldRemediate` (the lock target), 2 `Skipped`, 2 `SkippedNotOptedIn`, `patchesSubmitted=0` |
+
+Before the role propagated, four Remediate attempts against the same target were refused by ARM with
+HTTP 403 and reported as `Failed`/`Forbidden` with one PATCH each and the account still `Hot` — the
+negative half of the RBAC proof (the grant is the only thing that separated those runs from `q4a`).
+
+Every branch of the write contract has now been exercised against Azure except the ambiguous-response
+paths (5xx / lost response / undocumented 2xx) and throttling, which cannot be provoked on demand and
+remain harness-proven.
 
 The guard set above was run twice: on an earlier candidate (`5215c3210d4e9fba…`) and again on the released
 bytes — fetch-back of the published `-v11` runbook SHA-256 **`ba11f6413b7b5ee1…`**, identical to
