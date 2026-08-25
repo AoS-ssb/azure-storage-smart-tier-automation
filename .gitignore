@@ -1,0 +1,15 @@
+# Local Azure and generated deployment data
+.azure/
+.generated/
+*.azure.json
+
+# Live tenant evidence is intentionally kept out of Git
+live-*.md
+raw-*.txt
+*.log
+
+# Harness output
+tests/results*.md
+
+.DS_Store
+.vscode/
