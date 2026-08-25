@@ -6,7 +6,7 @@ bounded, verified wave at a time.
 
 > **Not to be confused with** Azure Backup "Smart Tiering" (moving recovery points into the vault-archive
 > tier), which is a different product with its own repository
-> ([azure-backup-smart-tiering-automation](https://github.com/AoS-ssb/azure-backup-smart-tiering-automation)).
+> ([azure-backup-smart-tiering-automation](https://github.com/kevo099/azure-backup-smart-tiering-automation)).
 > This runbook changes exactly one thing: a storage account's default blob access tier.
 
 > **Status:** 1.0 is the runbook as published in the owner's Automation account on 2026-08-24 and exercised
