@@ -58,10 +58,15 @@ every account one by one.
 
 ```text
 src/Enable-AzStorageSmartTier.ps1         Azure Automation runbook (PowerShell 7.4, Az.Accounts)
+infra/automation-account.bicep            Automation Account + PowerShell 7.4 runtime (Az pinned) + runbook imported from a release tag
 infra/test-environment.bicep              Nine-account disposable fixture (optional ReadOnly lock)
 infra/rbac/*.template.json                Discovery reader and remediator custom-role templates
 tests/StaticValidation.ps1                Parser and safety-marker checks
-tests/BehaviorHarness.ps1                 Behavioural harness: real runbook + mocked Az cmdlets
+tests/BehaviorHarness.ps1                 Behavioural harness: real runbook + mocked Az cmdlets (50 scenarios)
+scripts/publish-runbook.sh                Publish + link runtime + fetch-back hash check (release pipeline safe)
+scripts/ring-role.sh                      Grant / revoke the ring-scoped remediator role
+docs/replicate-in-azure.md                Step-by-step replication with the checkpoint expected at each step
+docs/gotchas.md                           Everything that bit us — read before the first Remediate
 docs/design-and-limitations.md            Method comparison, limitations, hardening status
 docs/validation.md                        Sanitised live evidence for 1.0 and 1.1
 CHANGELOG.md · LICENSE · SECURITY.md
@@ -69,6 +74,9 @@ CHANGELOG.md · LICENSE · SECURITY.md
 ```
 
 Raw subscription, tenant, principal and job identifiers and live account names are intentionally excluded.
+
+> **Replicating this?** Follow [docs/replicate-in-azure.md](docs/replicate-in-azure.md) end to end and read
+> [docs/gotchas.md](docs/gotchas.md) first. The sections below are the reference behind those two pages.
 
 ## Prerequisites
 
@@ -78,6 +86,22 @@ Raw subscription, tenant, principal and job identifiers and live account names a
 - An Automation **PowerShell 7.4** runtime environment with the **Az** default package (validated with
   Az 12.3.0). Record the package version you deploy; runtime-environment updates change behaviour for
   every linked runbook.
+
+## Deploy the Automation Account
+
+`infra/automation-account.bicep` creates the account (system-assigned identity, local auth disabled), a
+`PowerShell74-SmartTier` runtime environment with **Az 12.3.0** pinned, and imports the runbook from a release
+tag of this repository, already linked to that runtime and published:
+
+```bash
+az group create --name <automation-rg> --location <region>
+az deployment group create --resource-group <automation-rg> --template-file infra/automation-account.bicep \
+  --parameters automationAccountName=<name> sourceRef=v1.1.0
+```
+
+Automation Accounts are quota-limited per region on small subscriptions; if the deployment fails with
+`Conflict … exceeded your quota for Automation accounts`, pick another region. RBAC is deliberately not in
+the template — see *RBAC model*.
 
 ## Deploy the fixture
 
@@ -99,9 +123,9 @@ material; delete the resource group when done.
 
 ## RBAC model
 
-Render both templates by replacing `REPLACE_WITH_SUBSCRIPTION_ID`, create them with
+Render both templates (`<subscription-id>`, and `<ring-resource-group>` for the remediator), create them with
 `az role definition create --role-definition @<file>`, then assign to the Automation Account's
-system-assigned identity:
+system-assigned identity — `scripts/ring-role.sh grant|revoke` does the remediator half:
 
 - **Azure Storage Smart Tier Discovery Reader** (`storageAccounts/read`, subscription and resource-group
   reads) — at resource-group scope for `ScopeType=ResourceGroup`, at subscription scope only
@@ -132,7 +156,12 @@ sha256sum src/Enable-AzStorageSmartTier.ps1   # record it; the SUMMARY line repo
 ```
 
 Link the runbook to your PowerShell 7.4 runtime environment (`PATCH .../runbooks/{name}?api-version=2024-10-23`
-with `{"properties":{"runtimeEnvironment":"<name>"}}`, or the Portal).
+with `{"properties":{"runtimeEnvironment":"<name>"}}`, or the Portal). `scripts/publish-runbook.sh` does all
+of the above in one go and exits non-zero unless the fetch-back SHA-256 equals your local file:
+
+```bash
+SUBSCRIPTION_ID=<sub> RESOURCE_GROUP=<rg> AUTOMATION_ACCOUNT=<account> scripts/publish-runbook.sh
+```
 
 ## Parameters
 

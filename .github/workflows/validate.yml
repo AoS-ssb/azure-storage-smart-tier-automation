@@ -43,6 +43,12 @@ jobs:
           jq -e '.Actions == ["Microsoft.Resources/subscriptions/read","Microsoft.Resources/subscriptions/resourceGroups/read","Microsoft.Storage/storageAccounts/read"] and .NotActions == []' infra/rbac/discovery-reader-role.template.json > /dev/null
           jq -e '.Actions == ["Microsoft.Storage/storageAccounts/read","Microsoft.Storage/storageAccounts/write"] and .NotActions == []' infra/rbac/storage-remediator-role.template.json > /dev/null
 
-      - name: Compile Bicep fixture
+      - name: Compile Bicep templates
         shell: bash
-        run: az bicep build --file infra/test-environment.bicep --stdout > /dev/null
+        run: |
+          az bicep build --file infra/test-environment.bicep --stdout > /dev/null
+          az bicep build --file infra/automation-account.bicep --stdout > /dev/null
+
+      - name: Shell scripts parse
+        shell: bash
+        run: for f in scripts/*.sh; do bash -n "$f"; done
