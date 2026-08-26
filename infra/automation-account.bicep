@@ -22,7 +22,7 @@ param azPackageVersion string = '12.3.0'
 param sourceRef string = 'v1.1.0'
 
 @description('Raw content base URL of the repository (change only for a fork).')
-param sourceBaseUrl string = 'https://raw.githubusercontent.com/AoS-ssb/azure-storage-smart-tier-automation'
+param sourceBaseUrl string = 'https://raw.githubusercontent.com/kevo099/azure-storage-smart-tier-automation'
 
 @description('Runbook name in the Automation Account.')
 param runbookName string = 'Enable-AzStorageSmartTier'
